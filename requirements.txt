@@ -1,4 +1,1 @@
-BetterPrinting
-requests
-colorama
-paramiko
+Pytheas22
