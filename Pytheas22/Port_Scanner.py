@@ -604,7 +604,7 @@ class PortScanner:
                 if self.ssh_port:
                     PortScanner.hack_ip_ssh(PortScanner, self.ssh_port)
                 if self.check_open_port:
-                    print(f"ALL OPEN PORTS HAVE BEEN SAVED IN THE DATABASE '{hacked_country}_Ports.db'\nTHANK YOU FOR USING PYTHEAS22")
+                    print(f"ALL OPEN PORTS HAVE BEEN SAVED IN THE DATABASE '{hacked_country}_Ports.db'")
                 print(f"ALL LINKS HAVE BEEN SAVED IN {hacked_country}.\nTHANK YOU FOR USING PYTHEAS22")
                 sys.exit()
 
