@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import random
 import shutil
@@ -6,6 +7,7 @@ import string
 import subprocess
 import threading
 import time
+import sys
 import BetterPrinting as bp
 import re
 import sqlite3
@@ -15,7 +17,7 @@ import colorama
 from Pytheas22 import port_data
 import logging
 from logging import NullHandler
-import sys
+from paramiko import SSHClient, AutoAddPolicy, AuthenticationException, ssh_exception
 import csv
 
 string_port = """
@@ -58,15 +60,13 @@ class PortScanner:
     all_colors = ["red", "blue", "green", "cyan", "yellow", "magenta"]
     random_color = random.choice(all_colors)
     ssh_port = []
-    every_ip_with_name = []
-    my_ip_address = None
-    check_open_port = []
 
     def __init__(self):
         self.headers = None
         self.country_name = None
         self.addresses = None
         self.gui = string_port
+
 
     def cool_text(self):
         thread_wait = threading.Thread(target=PortScanner.wait)
@@ -111,29 +111,27 @@ class PortScanner:
         print()
         while True:
             for idx, letter in enumerate(wort):
-                try:
-                    if letter.upper() == letter:
-                        new = letter.lower()
-                    else:
-                        new = letter.upper()
 
-                    wort = PortScanner.check_char(wort, idx, new)
+                if letter.upper() == letter:
+                    new = letter.lower()
+                else:
+                    new = letter.upper()
 
-                    if "2" == letter:
-                        wort = PortScanner.check_char(wort, idx, "?")
+                wort = PortScanner.check_char(wort, idx, new)
 
-                    elif "?" == letter:
-                        wort = PortScanner.check_char(wort, idx, "2")
-                    PortScanner.print_text(wort)
-                    time.sleep(0.1)
-                    wort = PortScanner.check_char(wort, idx, letter)
-                    PortScanner.print_text(wort)
+                if "2" == letter:
+                    wort = PortScanner.check_char(wort, idx, "?")
 
-                    if PortScanner.waiting:
-                        print()
-                        sys.exit()
-                except KeyboardInterrupt:
-                    quit()
+                elif "?" == letter:
+                    wort = PortScanner.check_char(wort, idx, "2")
+                PortScanner.print_text(wort)
+                time.sleep(0.1)
+                wort = PortScanner.check_char(wort, idx, letter)
+                PortScanner.print_text(wort)
+
+                if PortScanner.waiting:
+                    print()
+                    sys.exit()
 
     @staticmethod
     def add_to_db(country_names, ip_address, open_ports, name=""):
@@ -242,109 +240,40 @@ class PortScanner:
                     print("PLEASE WRITE A RANGE. EXAMPLE '20-80'")
                     continue
         return lst_everything
-
-    def get_name(self, mac_address):
-        data = requests.get(f"https://maclookup.app/search/result?mac={mac_address}")
-        split_data = data.text.split("\n")
-
-        if "No assignment is found for this MAC" not in data.text:
-            get_action = [every_action for every_action in split_data if
-                          '<div class="col-md-12" style="padding-bottom: 1em">' in every_action]
-            get_name = get_action[0].split("h2")
-            second = get_name[1]
-            this_name = second.split("<")
-            real_name = this_name[0].replace(">", "")
-            return real_name
-
-        else:
-            return "Unknown"
-
-    def pinging(self, ip):
-        ping = subprocess.run(["ping", ip, "-n", "1", "-w", "1000"], capture_output=True)
-
-    def internal_windows(self):
-        cmd = subprocess.run(["ipconfig", "/all"], capture_output=True)
-        split_cmd = str(cmd).split()
-
-        klammer = r"\d+.\d+.\d+.\d+"
-        get_all = re.findall(klammer, str(cmd))
-        data = [every for every in split_cmd if "(" in every]
-
-        all_ips = [each for each in get_all for every_data in data if each in every_data]
-
-        valid_ip = []
-        for every_ip in all_ips:
-            try:
-                socket.inet_aton(every_ip)
-                valid_ip.append(every_ip)
-            except socket.error:
-                continue
-
-        PortScanner.my_ip_address = valid_ip[-1]
-        getlast = PortScanner.my_ip_address.split(".")
-        spalten = [f"{'.'.join(getlast[0:3])}.{block_number}" for block_number in range(1, 255)]
-        for all_ip in spalten:
-            t = threading.Thread(target=PortScanner.pinging, args=(PortScanner,all_ip,))
-            t.start()
-
-        time.sleep(1)
-        arp = subprocess.run(["arp", "-a"], capture_output=True)
-        split_data = str(arp).split()
-
-        indexes = []
-        for idx, arp_ip in enumerate(split_data):
-            if f"{'.'.join(getlast[0:3])}" in arp_ip:
-                if arp_ip != PortScanner.my_ip_address:
-                    mac_ip = split_data[idx + 1]
-                    if mac_ip != "ff-ff-ff-ff-ff-ff":
-                        indexes.append((arp_ip, mac_ip))
-
-        ip_name = [(ip, PortScanner.get_name(PortScanner, mac)) for ip, mac in indexes]
-        return ip_name
-
     @staticmethod
     def internal_network():
         global this_ip
         bp.color("ALL THE DEVICES IN YOUR NETWORK WILL BE SHOWN SOON", PortScanner.random_color)
-        if sys.platform == "linux":
-            threading_wait = threading.Thread(target=PortScanner.wait)
-            threading_wait.start()
-            host_ip = PortScanner.get_ip()
-            PortScanner.my_ip_address = host_ip[1][0][0]
-            all_data = subprocess.run(["nmap", "-sn", f"{host_ip[0]}/{host_ip[1][0][1]}"], capture_output=True)
-            PortScanner.waiting = True
-            time.sleep(0.6)
-            PortScanner.waiting = False
-            get_everything = str(all_data).split()
-            all_ips = [(get_everything[idx + 1].replace("\\nHost", ""), get_everything[idx + 2].replace("\\nHost", ""),
-                        get_everything[idx + 8].replace("\\nNmap", "").replace("(", "").replace(")", "")) for idx, ip in
-                       enumerate(get_everything) if ip == "for"]
-            internal_networks = [ips[0] for ips in all_ips if not re.search("[a-zA-Z]", ips[0])]
-            others = [name for name in all_ips if re.search("[a-zA-Z]", name[0])]
+        threading_wait = threading.Thread(target=PortScanner.wait)
+        threading_wait.start()
+        host_ip = PortScanner.get_ip()
+        my_ip_address = host_ip[1][0][0]
+        all_data = subprocess.run(["nmap", "-sn", f"{host_ip[0]}/{host_ip[1][0][1]}"], capture_output=True)
+        PortScanner.waiting = True
+        time.sleep(0.6)
+        PortScanner.waiting = False
+        get_everything = str(all_data).split()
+        all_ips = [(get_everything[idx + 1].replace("\\nHost", ""), get_everything[idx + 2].replace("\\nHost", ""),
+                    get_everything[idx + 8].replace("\\nNmap", "").replace("(", "").replace(")", "")) for idx, ip in
+                   enumerate(get_everything) if ip == "for"]
+        internal_networks = [ips[0] for ips in all_ips if not re.search("[a-zA-Z]", ips[0])]
+        others = [name for name in all_ips if re.search("[a-zA-Z]", name[0])]
+        every_ip_with_name = []
+        just_ips = []
+        for every_ip in all_ips:
+            for this_ip in internal_networks:
+                if this_ip == every_ip[0]:
+                    if not re.search("[a-zA-Z]", every_ip[2]):
+                        every_ip_with_name.append((this_ip, "Unknown"))
+                    else:
+                        every_ip_with_name.append((this_ip, every_ip[2]))
 
-            for every_ip in all_ips:
-                for this_ip in internal_networks:
-                    if this_ip == every_ip[0]:
-                        if not re.search("[a-zA-Z]", every_ip[2]):
-                            PortScanner.every_ip_with_name.append((this_ip, "Unknown"))
-                        else:
-                            PortScanner.every_ip_with_name.append((this_ip, every_ip[2]))
-
-            if others:
-                for not_in_lst in others:
-                    PortScanner.every_ip_with_name.append((not_in_lst[1].replace("(", "").replace(")", ""), not_in_lst[0]))
-
-        elif sys.platform == "win32" or sys.platform == "windows" or sys.platform == "win64":
-            win_threading_wait = threading.Thread(target=PortScanner.wait)
-            win_threading_wait.start()
-            PortScanner.every_ip_with_name = PortScanner.internal_windows(PortScanner)
-            time.sleep(0.5)
-            PortScanner.waiting = True
-
+        if others:
+            for not_in_lst in others:
+                every_ip_with_name.append((not_in_lst[1].replace("(", "").replace(")", ""), not_in_lst[0]))
         print()
         all_intern_ip = []
-        just_ips = []
-        for number, every_ip in enumerate(PortScanner.every_ip_with_name):
+        for number, every_ip in enumerate(every_ip_with_name):
             ip_name = every_ip[1]
             all_intern_ip.append(every_ip[0])
             try:
@@ -354,7 +283,7 @@ class PortScanner:
                 ip_name = "APPLE DEVICE"
             except:
                 pass
-            if every_ip[0] == PortScanner.my_ip_address:
+            if every_ip[0] == my_ip_address:
                 ip_name = "MY IP-ADDRESS"
 
             bp.color(f"[{number + 1}]: {every_ip[0]}          {ip_name}", PortScanner.random_color)
@@ -439,7 +368,7 @@ class PortScanner:
                         csv_reader = csv.reader(file, delimiter=",")
                         all_passwords.extend(csv_reader)
                 except FileNotFoundError:
-                    bp.color(f"'passwords.csv' could not be found. Download the file on my github: https://github.com/Kill0geR/Pytheas22", PortScanner.random_color)
+                    bp.color(f"'passwords.csv' could not be found. Install it on my github: https://github.com/Kill0geR/Pytheas22", PortScanner.random_color)
                     quit()
 
                 for host in ssh_lst:
@@ -477,7 +406,6 @@ class PortScanner:
                 try:
                     start.connect((this_ip, port))
                     open_ports.append(port)
-                    self.check_open_port.append(port)
                     if port == 22: self.ssh_port.append(this_ip)
 
                 except TimeoutError:
@@ -602,9 +530,8 @@ class PortScanner:
 
                 if self.ssh_port:
                     PortScanner.hack_ip_ssh(PortScanner, self.ssh_port)
-                if self.check_open_port:
-                    print(f"ALL OPEN PORTS HAVE BEEN SAVED IN THE DATABASE '{hacked_country}_Ports.db'")
-                print(f"ALL LINKS HAVE BEEN SAVED IN {hacked_country}.\nTHANK YOU FOR USING PYTHEAS22")
+
+                print(f"ALL OPEN PORTS HAVE BEEN SAVED IN THE DATABASE '{hacked_country}_Ports.db'\nTHANK YOU FOR USING PYTHEAS22")
                 sys.exit()
 
             else:
@@ -612,12 +539,16 @@ class PortScanner:
                 continue
 
     def question(self):
+        if sys.platform == "linux":
+            if os.getuid() != 0:
+                bp.color(string_port, PortScanner.random_color)
+                bp.color("\nThis program must be run in root!!!!\n".upper(), "red")
+                quit()
 
         bp.color(string_port, PortScanner.random_color)
         check_website = 0
 
         while True:
-            global this_ip
             lst_everything = []
             str_internal = bp.color("\n\nDo you want to scan your network? [y/n]: ".upper(), PortScanner.random_color, False)
             internal_ips = input(str_internal)
