@@ -158,10 +158,10 @@ class PortScanner:
 
         cur = con.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS Ports
-                                (IPAddress PRIMARY KEY, Open Ports)''')
+                                (IPAddress PRIMARY KEY, Open Ports, Time)''')
 
-        cur.execute("INSERT OR IGNORE INTO Ports VALUES (?,?)",
-                    (ip_address, open_ports))
+        cur.execute("INSERT OR IGNORE INTO Ports VALUES (?,?,?)",
+                    (ip_address, open_ports, time.strftime("%d.%m.%y - %H:%M")))
         con.commit()
 
     @classmethod
@@ -409,7 +409,7 @@ class PortScanner:
             ssh_client.connect(host, port=22, username=username, password=password, banner_timeout=300)
             with open("credentials_found.txt", "a") as file:
                 bp.color(f"Username - {username} and Password - {password} found for {host}!!!!1", PortScanner.random_color)
-                file.write(f"\nUsername: {username}\nPassword: {password}\nWorked on host {host}\nTime: {time.strftime('%H:%M:%S - %d.%m.%y')}")
+                file.write(f"\nUsername: {username}\nPassword: {password}\nWorked on host {host}\nTime: {time.strftime('%H:%M: - %d.%m.%y')}")
                 bp.color("CHECK 'credentials_found.txt' TO SEE YOUR PASSWORD", PortScanner.random_color)
                 time.sleep(1)
         except AuthenticationException:
