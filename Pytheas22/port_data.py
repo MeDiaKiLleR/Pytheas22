@@ -34,21 +34,26 @@ def check_ports(open_port, ip):
                      9080: "Microsoft Groove Software",
                      9999: "Communication",
                      62078: "Lightning Connector Apple Device"}
-    data = all_port_data[open_port]
-    if open_port == 53:
-        if re.findall(r"\d+.\d+.\d+.\d+", ip):
-            all_data = subprocess.run(["nslookup", ip], capture_output=True)
-            split_data = str(all_data).split("\\n")
-            name = ""
-            for each in split_data[0][::-1]:
-                if "=" == each:
-                    break
-                name += each
+    if open_port in all_port_data:
+        global data
+        data = all_port_data[open_port]
+        if open_port == 53:
+            if re.findall(r"\d+.\d+.\d+.\d+", ip):
+                all_data = subprocess.run(["nslookup", ip], capture_output=True)
+                split_data = str(all_data).split("\\n")
+                name = ""
+                for each in split_data[0][::-1]:
+                    if "=" == each:
+                        break
+                    name += each
 
-            name = name[::-1]
-            lst_name = [*name]
-            lst_name[0] = ""
-            name = "".join(lst_name)
-            data += f"\nThis is the website: '{name}' of this IP"
+                name = name[::-1]
+                lst_name = [*name]
+                lst_name[0] = ""
+                name = "".join(lst_name)
+                data += f"\nThis is the website: '{name}' of this IP"
+
+    else:
+        data = f"UNKNOWN PORT\n WEBSITE MIGHT BE OPEN ON: http://{ip}:{open_port}"
 
     return data
